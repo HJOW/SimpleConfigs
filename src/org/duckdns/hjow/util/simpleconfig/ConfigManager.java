@@ -41,7 +41,7 @@ public class ConfigManager {
     
     /** 인스턴스 객체가 존재함을 보장 */
     protected static synchronized void insureInstanceExists() {
-        if(instances == null) instances = new ConfigInstance();
+        if(instances == null) instances = new CommonConfigInstance();
     }
     
     /** 어떤 문자열이 '/'로 끝나는지 확인, 이미 '/'로 끝나면 그대로 반환, 아니면 '/'를 붙여서 반환. 단 null 은 그대로 반환 */
