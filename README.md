@@ -25,6 +25,8 @@ Map 형태로 순서대로 읽으며, 키가 겹치는 항목은 나중에 읽�
 </dependency>
 ```
 
+버전 정보는 [Maven Central - simpleconfigs](https://central.sonatype.com/artifact/org.duckdns.hjow/simpleconfigs/versions) 를 참고해 주세요.
+
 ## 사용 방법
 1. 자바 코드 안에서, 설정을 읽어야 할 코드 위치에서 다음과 같이 사용합니다.
 ```
