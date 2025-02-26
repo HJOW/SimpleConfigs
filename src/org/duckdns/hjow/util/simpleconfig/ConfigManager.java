@@ -50,4 +50,14 @@ public class ConfigManager {
         if(! mayBeUrl.endsWith("/")) return mayBeUrl + "/";
         return mayBeUrl;
     }
+    
+    /** 설정 인스턴스를 다른 것으로 교체합니다. */
+    public static void setInstance(ConfigInstance others) {
+        ConfigManager.instances = others;
+    }
+    
+    /** 설정 인스턴스를 반환합니다. */
+    public static ConfigInstance getInstance() {
+        return instances;
+    }
 }
