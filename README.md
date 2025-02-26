@@ -39,10 +39,11 @@ String option = ConfigManager.getConfig("option1");
 
 이를테면,  
 서블릿/jsp 웹 프로젝트의 경우, 서버에서는 [웹경로]/WEB-INF/classes/ 안에 설정 파일을 배치합니다.  
-eclipse 툴로 만든 Maven Project 의 경우, [프로젝트경로]/src/main/resources/ 안에 설정 파일을 배치합니다. (전자정부프레임워크도 해당)  
+eclipse 툴로 만든 Maven Project 의 경우, [프로젝트경로]/src/main/resources/ 안에 설정 파일을 배치합니다.  
+(전자정부프레임워크도 해당)  
 eclipse 툴로 만든 기본 Java Project 의 경우, [프로젝트경로]/src/ 안에 설정 파일을 배치합니다.  
 
-내용은 다음 형식으로 입력합니다.  
+내용은 다음 형식으로 입력합니다. (xml 파일 기준)  
 ```
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
