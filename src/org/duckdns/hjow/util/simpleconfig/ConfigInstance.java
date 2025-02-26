@@ -1,8 +1,13 @@
 package org.duckdns.hjow.util.simpleconfig;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -11,6 +16,7 @@ import java.util.Set;
 public class ConfigInstance implements Serializable {
     private static final long serialVersionUID = -8942489641252500910L;
     protected Map<String, String> configs = new HashMap<String, String>();
+    protected transient List<String> additionals = new ArrayList<String>();   
     protected transient String fileName = "config";
     protected transient long   readDate = 0L;
     
@@ -49,6 +55,8 @@ public class ConfigInstance implements Serializable {
             throw new RuntimeException(ex.getMessage(), ex);
         }
         
+        readMores(prop);
+        
         // Map 으로 변환
         Map<String, String> map = new HashMap<String, String>();
         Set<String>  keys = prop.stringPropertyNames();
@@ -61,6 +69,39 @@ public class ConfigInstance implements Serializable {
         setReadDate(System.currentTimeMillis());
         configs = map;
         return map;
+    }
+    
+    /** 추가 파일을 읽습니다. */
+    protected void readMores(Properties prop) throws RuntimeException {
+        InputStream inp = null;
+        try {
+            for(String pathOne : getAdditionals()) {
+                if(pathOne == null) continue;
+                
+                if(pathOne.startsWith("file:")) {
+                    File filePath = new File(pathOne.substring(5));
+                    if(! filePath.exists()) return;
+                    if(filePath.isDirectory()) return;
+                    
+                    inp = new FileInputStream(filePath);
+                    
+                    if(filePath.getName().toLowerCase().endsWith(".xml")) prop.loadFromXML(inp); 
+                    else                                                  prop.load(inp);       
+                    inp.close(); inp = null;
+                } else {
+                    inp = ConfigManager.class.getClassLoader().getResourceAsStream(pathOne);
+                    if(inp != null) {
+                        if(pathOne.toLowerCase().endsWith(".xml")) prop.loadFromXML(inp);
+                        else                                       prop.load(inp);
+                        inp.close(); inp = null;
+                    }
+                }
+            }
+        } catch(Exception ex) {
+            if(inp != null) { try { inp.close(); } catch(Exception closingErr) { throw new RuntimeException(closingErr.getMessage(), ex); } }
+            inp = null;
+            throw new RuntimeException(ex.getMessage(), ex);
+        }
     }
 
     /** 설정 파일명을 반환합니다. */
@@ -99,5 +140,41 @@ public class ConfigInstance implements Serializable {
     /** 읽은 설정 컨텐츠의 만료시간을 반환합니다. (Milliseconds) 이 시간이 지나면 설정 파일을 다시 읽습니다. */
     public long getExpireGap() {
         return 60000L;
+    }
+
+    /** 설정 조회 시 추가로 읽을 파일 경로 목록을 반환합니다. */
+    public List<String> getAdditionals() {
+        return additionals;
+    }
+
+    /** 설정 조회 시 추가로 읽을 파일 경로 목록을 세팅합니다. */
+    public void setAdditionals(List<String> additionals) {
+        this.additionals = additionals;
+        readConfigs();
+    }
+    
+    /** 설정 파일 경로를 추가합니다. 자바 클래스패스 풀네임 (확장자도 포함) 으로 지정해야 합니다. 순서가 영향이 있으며, 이미 키가 존재하는 경우 값을 덮어 쓰게 됩니다. */
+    public void addAdditionalConfigPath(String classpath) {
+        this.additionals.add(classpath);
+        readConfigs();
+    }
+    
+    /** 설정 파일 경로를 추가합니다. 실제 파일 정보를 지정합니다. 이미 존재하는 파일이어야 하고, 디렉토리가 아니어야 합니다. */
+    public void addAdditionalConfigFile(File file) throws IOException {
+        this.additionals.add("file:" + file.getCanonicalPath());
+        readConfigs();
+    }
+    
+    /** 캐시 데이터를 비웁니다. */
+    public void clear() {
+        configs.clear();
+        readDate = 0L;
+    }
+    
+    /** 이 객체를 초기 상태로 되돌립니다. clear() 메소드 동작을 포함합니다. */
+    public synchronized void reset() {
+        additionals.clear();
+        clear();
+        fileName = "config";
     }
 }
