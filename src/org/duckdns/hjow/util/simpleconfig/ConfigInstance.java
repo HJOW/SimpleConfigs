@@ -2,8 +2,10 @@ package org.duckdns.hjow.util.simpleconfig;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -176,5 +178,46 @@ public class ConfigInstance implements Serializable {
         additionals.clear();
         clear();
         fileName = "config";
+    }
+    
+    /** 데이터들을 java.util.Properties 객체에 담아 반환합니다. */
+    protected Properties toProp() {
+        Properties prop = new Properties();
+        Set<String> keys = keySet();
+        for(String k : keys) {
+            prop.setProperty(k, getConfig(k));
+        }
+        return prop;
+    }
+    
+    /** 데이터들을 파일, URL 스트림 등으로 저장/전송합니다. 완료 후, 받은 스트림 객체를 닫지 않습니다. */
+    public void save(OutputStream output, boolean xml) throws IOException { 
+        Properties prop = toProp();
+        
+        if(xml) {
+            prop.storeToXML(output, "Configs");
+        } else {
+            prop.store(output, "Configs");
+        }
+    }
+    
+    /** 데이터들을 파일로 저장합니다. */
+    public void save(File file) {
+        FileOutputStream fileOut = null;
+        Exception exc = null;
+        String name = file.getName().toLowerCase().trim();
+        
+        Properties prop = toProp();
+        
+        try {
+            fileOut = new FileOutputStream(file);
+            if(name.endsWith(".xml")) prop.storeToXML(fileOut, "Configs");
+            else                      prop.store(fileOut, "Configs");
+        } catch(Exception ex) {
+            exc = ex;
+        } finally {
+            if(fileOut != null) { try { fileOut.close(); } catch(Exception closingErr) { throw new RuntimeException(closingErr.getMessage(), exc); } }
+        }
+        if(exc != null) throw new RuntimeException(exc.getMessage(), exc);
     }
 }
