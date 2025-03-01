@@ -18,8 +18,10 @@ public class CommonConfigInstance implements SaveableInstance {
     private static final long serialVersionUID = -8942489641252500910L;
     protected Map<String, String> configs = new HashMap<String, String>();
     protected transient List<String> additionals = new ArrayList<String>();   
-    protected transient String fileName = "config";
-    protected transient long   readDate = 0L;
+    protected transient String  fileName = "config";
+    protected transient long    readDate = 0L;
+    protected transient boolean useYaml  = true;
+    protected transient boolean firsts   = true;
     
     /** 설정의 키들을 조회해 반환합니다. */
     public Set<String> keySet() {
@@ -40,6 +42,8 @@ public class CommonConfigInstance implements SaveableInstance {
     
     /** 설정 파일 전체 내용을 조회해 반환합니다. (파일을 다시 읽습니다.) */
     public synchronized Map<String, String> readConfigs() {
+    	if(firsts) processAtFirst();
+    	
         InputStream inp = null;
         Properties prop = new Properties();
         
@@ -50,6 +54,11 @@ public class CommonConfigInstance implements SaveableInstance {
             
             inp = ConfigManager.class.getClassLoader().getResourceAsStream("/" + getFileName() + ".xml");
             if(inp != null) { prop.loadFromXML(inp); inp.close(); inp = null; }
+            
+            if(useYaml()) {
+            	inp = ConfigManager.class.getClassLoader().getResourceAsStream("/" + getFileName() + ".yaml");
+                if(inp != null) { YamlReflexionUtil.fromYaml(inp, "UTF-8"); inp.close(); inp = null; }
+            }
         } catch(Exception ex) {
             if(inp != null) { try { inp.close(); } catch(Exception closingErr) { throw new RuntimeException(closingErr.getMessage(), ex); } }
             inp = null;
@@ -127,6 +136,12 @@ public class CommonConfigInstance implements SaveableInstance {
     public void setConfigs(Map<String, String> configs) {
         this.configs = configs;
     }
+    
+    /** 런타임 시간 내에서 이 객체 최초 사용 시 호출됩니다. */
+    protected void processAtFirst() {
+    	firsts = false;
+    	setUseYaml(YamlReflexionUtil.isYamlSupport());
+    }
 
     /** 설정 내용을 읽은 시간 정보를 반환합니다. (Milliseconds) */
     public long getReadDate() {
@@ -166,7 +181,32 @@ public class CommonConfigInstance implements SaveableInstance {
         readConfigs();
     }
     
-    /** 캐시 데이터를 비웁니다. */
+    /** 직접 호출하지 마세요. 이 라이브러리 내부 동작 및 직렬화를 위해 구현한 메소드입니다. */
+    public final boolean isUseYaml() {
+		return useYaml();
+	}
+    
+    /** yaml 사용 여부를 반환합니다. */
+    public boolean useYaml() {
+    	return useYaml;
+    }
+
+    /** yaml 파일 사용 여부를 지정합니다. 이 메소드를 호출하지 않으면 true 로 설정된 상태입니다. (단, 런타임 처음 SnakeYaml 라이브러리 존재여부 확인해 미존재 시 false 로 세팅됩니다.) */
+	public void setUseYaml(boolean useYaml) {
+		this.useYaml = useYaml;
+	}
+
+	/** 직접 호출하지 마세요. 이 라이브러리 내부 동작 및 직렬화를 위해 구현한 메소드입니다. */
+	public final boolean isFirsts() {
+		return firsts;
+	}
+
+	/** 직접 호출하지 마세요. 이 라이브러리 내부 동작 및 직렬화를 위해 구현한 메소드입니다. */
+	public final void setFirsts(boolean firsts) {
+		this.firsts = firsts;
+	}
+
+	/** 캐시 데이터를 비웁니다. */
     public void clear() {
         configs.clear();
         readDate = 0L;
