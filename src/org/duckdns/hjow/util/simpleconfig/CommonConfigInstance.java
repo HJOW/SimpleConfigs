@@ -12,16 +12,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.StringTokenizer;
 
 /** 단일 설정 그룹이 이 클래스의 인스턴스가 됩니다. */
 public class CommonConfigInstance implements SaveableInstance {
     private static final long serialVersionUID = -8942489641252500910L;
     protected Map<String, String> configs = new HashMap<String, String>();
+    protected transient Class<?> classBasic = ConfigManager.class;
     protected transient List<String> additionals = new ArrayList<String>();   
-    protected transient String  fileName = "config";
-    protected transient long    readDate = 0L;
-    protected transient boolean useYaml  = true;
-    protected transient boolean firsts   = true;
+    protected transient String  fileName  = "config";
+    protected transient String  comments  = "Configs";
+    protected transient String  importKey = "__import";
+    protected transient long    readDate  = 0L;
+    protected transient boolean useYaml   = true;
+    protected transient boolean firsts    = true;
     
     /** 설정의 키들을 조회해 반환합니다. */
     public Set<String> keySet() {
@@ -45,19 +49,25 @@ public class CommonConfigInstance implements SaveableInstance {
     	if(firsts) processAtFirst();
     	
         InputStream inp = null;
-        Properties prop = new Properties();
+        Properties propFirst = new Properties();
         
         // 파일 읽기
         try {
-            inp = ConfigManager.class.getClassLoader().getResourceAsStream("/" + getFileName() + ".properties");
-            if(inp != null) { prop.load(inp); inp.close(); inp = null; }
+            inp = classBasic.getClassLoader().getResourceAsStream("/" + getFileName() + ".properties");
+            if(inp != null) { propFirst.load(inp); inp.close(); inp = null; }
             
-            inp = ConfigManager.class.getClassLoader().getResourceAsStream("/" + getFileName() + ".xml");
-            if(inp != null) { prop.loadFromXML(inp); inp.close(); inp = null; }
+            inp = classBasic.getClassLoader().getResourceAsStream("/" + getFileName() + ".xml");
+            if(inp != null) { propFirst.loadFromXML(inp); inp.close(); inp = null; }
             
             if(useYaml()) {
-            	inp = ConfigManager.class.getClassLoader().getResourceAsStream("/" + getFileName() + ".yaml");
-                if(inp != null) { YamlReflexionUtil.fromYaml(inp, "UTF-8"); inp.close(); inp = null; }
+            	inp = classBasic.getClassLoader().getResourceAsStream("/" + getFileName() + ".yaml");
+                if(inp != null) { 
+                	Map<String, ?> reads = YamlReflexionUtil.fromYaml(inp, "UTF-8"); inp.close(); inp = null;
+                	Set<String> keyReads = reads.keySet();
+                	for(String kx : keyReads) {
+                		propFirst.setProperty(kx, reads.get(kx) == null ? "" : reads.get(kx).toString());
+                	}
+                }
             }
         } catch(Exception ex) {
             if(inp != null) { try { inp.close(); } catch(Exception closingErr) { throw new RuntimeException(closingErr.getMessage(), ex); } }
@@ -65,50 +75,100 @@ public class CommonConfigInstance implements SaveableInstance {
             throw new RuntimeException(ex.getMessage(), ex);
         }
         
-        readMores(prop);
+        Properties propAfter = new Properties();
+        readMores(propAfter);
+        
+        propAfter.putAll(propFirst);
+        propFirst.clear();
+        
+        propFirst = propAfter;
+        propAfter = null;
         
         // Map 으로 변환
         Map<String, String> map = new HashMap<String, String>();
-        Set<String>  keys = prop.stringPropertyNames();
+        Set<String>  keys = propFirst.stringPropertyNames();
         
         for(String k : keys) {
-            map.put(k, prop.getProperty(k));
+            map.put(k, propFirst.getProperty(k));
         }
-        prop.clear();
+        propFirst.clear();
         
         setReadDate(System.currentTimeMillis());
         configs = map;
         return map;
     }
     
+    /** 스트림으로부터 Properties 정보를 읽습니다. 스트림을 닫지 않습니다. */
+    protected Properties readPropertyStream(InputStream inp, String ext) {
+    	Properties prop = new Properties();
+    	if(ext == null) ext = "properties";
+    	ext = ext.trim().toLowerCase();
+    	
+    	try {
+    		if(ext.equals("properties")) prop.load(inp);
+    		if(ext.equals("xml")) prop.loadFromXML(inp);
+    		if(ext.equals("yaml")) YamlReflexionUtil.fromYaml(inp, "UTF-8");
+            
+            return prop;
+        } catch(Exception ex) {
+            throw new RuntimeException(ex.getMessage(), ex);
+        }
+    }
+    
     /** 추가 파일을 읽습니다. */
     protected void readMores(Properties prop) throws RuntimeException {
-        InputStream inp = null;
+        // importKey 읽기
+        if(importKey != null) {
+        	StringTokenizer spaceTokenizer = new StringTokenizer(importKey.trim(), "\n");
+        	while(spaceTokenizer.hasMoreTokens()) {
+        		String importValueOne = spaceTokenizer.nextToken().trim();
+        		if(importValueOne.equals("")) continue;
+        		readMores(prop, importValueOne);
+        	}
+        }
+        
+        // 추가 파일로 지정된 파일 읽기
         try {
             for(String pathOne : getAdditionals()) {
                 if(pathOne == null) continue;
-                
-                if(pathOne.startsWith("file:")) {
-                    File filePath = new File(pathOne.substring(5));
-                    if(! filePath.exists()) return;
-                    if(filePath.isDirectory()) return;
-                    
-                    inp = new FileInputStream(filePath);
-                    
-                    if(filePath.getName().toLowerCase().endsWith(".xml")) prop.loadFromXML(inp); 
-                    else                                                  prop.load(inp);       
-                    inp.close(); inp = null;
-                } else {
-                    inp = ConfigManager.class.getClassLoader().getResourceAsStream(pathOne);
-                    if(inp != null) {
-                        if(pathOne.toLowerCase().endsWith(".xml")) prop.loadFromXML(inp);
-                        else                                       prop.load(inp);
-                        inp.close(); inp = null;
-                    }
-                }
+                readMores(prop, pathOne);
             }
         } catch(Exception ex) {
-            if(inp != null) { try { inp.close(); } catch(Exception closingErr) { throw new RuntimeException(closingErr.getMessage(), ex); } }
+        	if(ex instanceof RuntimeException) throw (RuntimeException) ex;
+            throw new RuntimeException(ex.getMessage(), ex);
+        }
+    }
+    
+    /** 추가 파일을 읽습니다. */
+    protected void readMores(Properties prop, String pathOne) throws RuntimeException {
+    	InputStream inp = null;
+    	try {
+    		if(pathOne == null) return;
+    		if(pathOne.startsWith("file:")) {
+                File filePath = new File(pathOne.substring(5));
+                if(! filePath.exists()) return;
+                if(filePath.isDirectory()) return;
+                
+                String fName = filePath.getName().toLowerCase().trim();
+                inp = new FileInputStream(filePath);
+                
+                if(fName.endsWith(".xml"))       prop.putAll(readPropertyStream(inp, "xml"));
+                else if(fName.endsWith(".yaml")) prop.putAll(readPropertyStream(inp, "yaml"));
+                else                             prop.putAll(readPropertyStream(inp, "properties"));       
+                inp.close(); inp = null;
+            } else {
+                inp = classBasic.getClassLoader().getResourceAsStream(pathOne);
+                if(inp != null) {
+                	String pathLower = pathOne.toLowerCase();
+                    if(pathLower.endsWith(".xml"))       prop.putAll(readPropertyStream(inp, "xml"));
+                    else if(pathLower.endsWith(".yaml")) prop.putAll(readPropertyStream(inp, "yaml"));
+                    else                                 prop.putAll(readPropertyStream(inp, "properties"));
+                    
+                    inp.close(); inp = null;
+                }
+            }
+    	} catch(Exception ex) {
+    		if(inp != null) { try { inp.close(); } catch(Exception closingErr) { throw new RuntimeException(closingErr.getMessage(), ex); } }
             inp = null;
             throw new RuntimeException(ex.getMessage(), ex);
         }
@@ -250,8 +310,8 @@ public class CommonConfigInstance implements SaveableInstance {
         
         try {
             fileOut = new FileOutputStream(file);
-            if(name.endsWith(".xml")) prop.storeToXML(fileOut, "Configs");
-            else                      prop.store(fileOut, "Configs");
+            if(name.endsWith(".xml")) prop.storeToXML(fileOut, comments);
+            else                      prop.store(fileOut, comments);
         } catch(Exception ex) {
             exc = ex;
         } finally {
@@ -259,4 +319,24 @@ public class CommonConfigInstance implements SaveableInstance {
         }
         if(exc != null) throw new RuntimeException(exc.getMessage(), exc);
     }
+
+    /** 지정되어 있는 xml 코멘트 값을 반환 (xml 사용 시에만 영향) */
+	public String getComments() {
+		return comments;
+	}
+
+	/** xml 코멘트 값을 지정 (xml로 저장 시에만 영향) */
+	public void setComments(String comments) {
+		this.comments = comments;
+	}
+
+	/** import 키를 변경 (이 키로 설정 값을 넣으면, 해당 값을 추가 설정파일 경로로 보고, 해당 파일로부터 설정을 더 불러옵니다.) */
+	public void setImportKey(String importKey) {
+		this.importKey = importKey;
+	}
+	
+	/** 리소스를 불러오기 위한 기준 클래스를 변경합니다. */
+	public void setBaseClass(Class<?> classObject) {
+		this.classBasic = classObject;
+	}
 }

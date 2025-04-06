@@ -36,10 +36,11 @@ String option = ConfigManager.getConfig("option1");
 
 2. 자바 클래스패스에 파일을 배치합니다.
 클래스패스 경로 내 최상단에 설정 파일 (config.xml, config.properties, ...) 을 배치합니다.
+(서블릿/jsp 웹, 스프링 웹 프로젝트에서 동작 확인)
 
 이를테면,  
 서블릿/jsp 웹 프로젝트의 경우, 서버에서는 [웹경로]/WEB-INF/classes/ 안에 설정 파일을 배치합니다.  
-eclipse 툴로 만든 Maven Project 의 경우, [프로젝트경로]/src/main/resources/ 안에 설정 파일을 배치합니다.  
+eclipse 툴로 만든 웹 Maven Project 의 경우, [프로젝트경로]/src/main/resources/ 안에 설정 파일을 배치합니다.  
 (전자정부프레임워크도 해당)  
 eclipse 툴로 만든 기본 Java Project 의 경우, [프로젝트경로]/src/ 안에 설정 파일을 배치합니다.  
 

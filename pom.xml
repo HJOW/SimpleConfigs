@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.duckdns.hjow</groupId>
 	<artifactId>simpleconfigs</artifactId>
-	<version>0.0.2</version>
+	<version>0.0.3</version>
 	<name>SimpleConfigs</name>
 	<packaging>jar</packaging>
 	<description>자바 기반 프로젝트에 간단히 설정 파일 기능을 적용합니다.</description>
